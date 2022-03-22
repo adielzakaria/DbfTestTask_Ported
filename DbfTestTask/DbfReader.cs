@@ -1,12 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.OleDb;
 using System.Globalization;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
 
 namespace DbfTests
 {
@@ -47,22 +43,13 @@ namespace DbfTests
 
         private ValueRow GetValueRow(DbfDataReader.DbfDataReader dataRow)
         {
-            var attType = (int)dataRow.GetInt32(ColumnAttType);
-            double value = 0;
-
-            switch (attType)
+             var value = (int)dataRow.GetInt32(ColumnAttType) switch
             {
-                case 1:
-                    value = (double)dataRow.GetDouble(ColumnValInt);
-                    break;
-                case 2:
-                    value = (double)dataRow.GetDecimal(ColumnValReal);
-                    break;
-                case 3:
-                    value = (double)dataRow.GetInt32(ColumnValBool);
-                    break;
-            }
-
+                1=>(double)dataRow.GetDouble(ColumnValInt),
+                2=>(double)dataRow.GetDecimal(ColumnValReal),
+                3=>(double)dataRow.GetInt32(ColumnValBool),
+                _=>0
+            };
             var date = ((double)dataRow.GetInt32(ColumnDate)).ToString();
             string timestring = $"0000{dataRow.GetValue(ColumnTime)}";
             var time = timestring.Substring(timestring.Length - 4);
