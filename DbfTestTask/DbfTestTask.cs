@@ -12,27 +12,39 @@ namespace DbfTests
         [TestMethod]
         public void TestTask()
         {
+            //using uri with path.combine ? to benefit from cross-platform
             const string RootDir = @".\Data";
-            const string RelevantFileName = "128.dbf";
-
-            // TODO read all RelevantFileName files recursively from RootDir (will be copied on build)
-            // use DbfReader to read them and extract all DataValues
-            // here an example call for one file:
+            // probably .DBF is better since we can use cross-platform feature of .Net 6 and it can still run on windows 
+            const string RelevantFileName = "128.DBF";
+            /*testing the existence of the root directory before trying to read its content 
+              probably not useful now since I throw an exception when not found but anyway */
+            var headers=GetHeaders(RootDir,RelevantFileName);
             var reader = new DbfReader();
-            var values = reader.ReadValues(@".\Data\ELEKTRO\E01\E600DI01\128.dbf");
+            var values = headers.Select(x=> reader.ReadValues(x))
+                                .SelectMany(x=> x)
+                                .GroupBy(x=>x.Timestamp)
+                                .OrderBy(x=>x.Key);
 
-            // put all DataValues into ONE ordered (by timestamp) list of OutputRow (each timestamp shall exist only once, each file should be like a column)
-            // the OutputRow has 2 lists: 1 static one for the headers (directory path of file) and one for the values (values of all files (same timestamp) must be merged into one OutputRow)
             var outputs = new List<OutputRow>();
-
-            // if there is time left, improve example where you think it isn't good enough
-
+            OutputRow.Headers=headers.ToList();
+            foreach (var item in values)
+            {
+                var outputRow = new OutputRow();
+                outputRow.Timestamp=item.Key; 
+                outputRow.Values=item.Select(x=>x.Value as double?).ToList();
+                outputs.Add(outputRow);  
+            }
             // the following asserts should pass
+           
             Assert.AreEqual(25790, outputs.Count);
+            // <-- these asserts are failing on my machine for some reason 
+             
             Assert.AreEqual(27, OutputRow.Headers.Count);
             Assert.AreEqual(27, outputs[0].Values.Count);
             Assert.AreEqual(27, outputs[11110].Values.Count);
             Assert.AreEqual(27, outputs[25789].Values.Count);
+            
+            //  these asserts are failing on my machine for some reason -->
             Assert.AreEqual(633036852000000000, outputs.Min(o => o.Timestamp).Ticks);
             Assert.AreEqual(634756887000000000, outputs.Max(o => o.Timestamp).Ticks);
             Assert.AreEqual(633036852000000000, outputs[0].Timestamp.Ticks);
@@ -42,6 +54,17 @@ namespace DbfTests
             string content = "Time\t" + string.Join("\t", OutputRow.Headers) + Environment.NewLine +
                           string.Join(Environment.NewLine, outputs.Select(o => o.AsTextLine()));
             File.WriteAllText(@".\output.txt", content);
+        }
+        public string[] GetHeaders(string rootDir,string RelevantFileName)
+        {
+            if(Directory.Exists(rootDir))
+            {
+                return Directory.GetFiles(rootDir,RelevantFileName,SearchOption.AllDirectories);
+            }
+            else
+            {
+                throw new ArgumentException("Invalid directory");
+            }
         }
     }
 }
